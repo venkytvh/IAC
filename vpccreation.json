@@ -1,0 +1,157 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Solv cloud formation template for Netwrok Creation",
+    "Parameters": {
+        "vpccidr": {
+            "Description": "This is VPC CIDR range",
+            "Type": "String",
+            "Default": "10.0.0.0/16"
+        },
+        "publicaz": {
+            "Description": "AZ of the public subnet",
+            "Type": "AWS::EC2::AvailabilityZone::Name"
+        },
+        "privateaz": {
+            "Description": "AZ of the private subnet",
+            "Type": "AWS::EC2::AvailabilityZone::Name"
+        }
+    },
+    "Resources": {
+        "vpc": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "vpccidr"
+                },
+                "EnableDnsHostnames": "true",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Prod-vpc"
+                    }
+                ]
+            }
+        },
+        "publicsubnet": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Ref": "publicaz"
+                },
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        0,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Ref": "vpccidr"
+                                },
+                                6,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "public"
+                    }
+                ]
+            }
+        },
+        "privatesubnet": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Ref": "privateaz"
+                },
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        1,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Ref": "vpccidr"
+                                },
+                                6,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "private"
+                    }
+                ]
+            }
+        },
+        "igwName": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "prodigw"
+                    }
+                ]
+            }
+        },
+        "AttachGateway": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "InternetGatewayId": {
+                    "Ref": "igwName"
+                }
+            }
+        },
+        "routeTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "routeTable"
+                    }
+                ]
+            }
+        },
+        "routeName": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "routeTable"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": {
+                    "Ref": "igwName"
+                }
+            }
+        },
+        "routeTableAssocPublicSubnet": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "publicsubnet"
+                },
+                "RouteTableId": {
+                    "Ref": "routeTable"
+                }
+            }
+        }
+    }
+}
