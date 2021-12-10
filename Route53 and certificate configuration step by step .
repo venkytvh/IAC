@@ -1,0 +1,29 @@
+Navigate to Route 53 in prod kenya 
+
+1) click on create hosted zone 
+Add Domain Name : solv.co.ke
+Select : Public hosted zone
+After creating the host name grab the ns record and provided to kenya team to whitlist 
+solv.co.ke	NS	Simple	-	
+ns-864.awsdns-44.net.
+ns-1563.awsdns-03.co.uk.
+ns-80.awsdns-10.com.
+ns-1174.awsdns-18.org.
+
+Certificate Configuration 
+1) Navigate to AWS Certificate Manager > Certificates > Request certificate
+select : Request a public certificate
+step 1
+add Domain names : *.solv.co.ke
+step 2
+Select validation method  (in our case we are using DNA validationn)
+DNS validation - recommended
+Email validation
+Step 3 
+Add tags 
+Request 
+
+2) After creation certificate to activate the certificate we have to create CNAME record in route 53 for validation purpose 
+given by cerficate domains 
+
+Status: Issued  when certificate validate successfully . 
