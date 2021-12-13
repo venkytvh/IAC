@@ -1,0 +1,174 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'S3 CFT for Private bucket'
+# For issue related to lamda version https://stackoverflow.com/questions/41452274/how-to-create-a-new-version-of-a-lambda-function-using-cloudformation
+#This stack worked when Provisioned concurrency configurations in lambda was deleted. It was set to 1
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name of Bucket
+Resources:
+  #-----------------------------------------------------------------
+  # S3 Bucket Policy
+  #-----------------------------------------------------------------
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketName
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: s3:*
+            Resource: !Join ['',[!GetAtt S3WebsiteBucket.Arn,'/*']]
+            Condition:
+              StringEquals:
+              # Revisit the VPCID before triggering this
+                aws:SourceVpc: vpc-077fce66613333757         # kenyaprodvpc
+                #- !ImportValue Kenya-VPC
+        #The below Role is for attaching OAI or Access from Cloudfront OAI
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginIdentity}
+            Action: s3:*
+            Resource: !Join ['',[!GetAtt S3WebsiteBucket.Arn,'/*']]
+  #-----------------------------------------------------------------
+  #S3 Website bucket creation
+  #-----------------------------------------------------------------
+  S3WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+    #  DeletionPolicy: Retain
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+        #AccessControl: PublicRead
+          # Modify CorsRules as per requirement
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+            AllowedOrigins:
+              - '*'
+            ExposedHeaders:
+              - ETAG
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        -
+          Key: Bill
+          Value: scf-kenya
+  #-----------------------------------------------------------------
+  #OAI Creation
+  #This section needs work on making comment unique
+  #-----------------------------------------------------------------
+  CloudFrontOriginIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !GetAtt S3WebsiteBucket.RegionalDomainName
+          #     : OAI
+  #-----------------------------------------------------------------
+  #CloudFront
+  #-----------------------------------------------------------------
+  S3WebsiteCloudfront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        # Aliases: To be Added later
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          Compress: true
+          # LambdaFunctionAssociations:
+          #   - EventType: origin-response
+          #     LambdaFunctionARN: 'arn:aws:lambda:us-east-1:409212760190:function:EdgeLambdaStack-LambdaEdgeFunction-Y9HiAZwbjITm:1'
+          # #       #!ImportValue EdgeLambdaFunctionVersion # !GetAtt LambdaEdgeFunction.Arn
+          TargetOriginId: !Ref S3WebsiteBucket
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        Origins:
+        - DomainName: !GetAtt S3WebsiteBucket.RegionalDomainName
+          Id: !Ref S3WebsiteBucket
+          CustomOriginConfig:
+            HTTPPort: 80
+            HTTPSPort: 443
+            OriginProtocolPolicy: https-only
+            OriginSSLProtocols:
+              - TLSv1.2
+        PriceClass: PriceClass_All
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+  #
+  #
+  # LambdaEdgeFunction:
+  #   Type: AWS::Lambda::Function
+  #   Properties:
+  #     Code:
+  #       ZipFile: |
+  #         exports.handler = (event, context, callback) => {
+  #
+  #             const response = event.Records[0].cf.response;
+  #             const headers = response.headers;
+  #
+  #          headers['content-security-policy'] = [{key: 'Content-Security-Policy', value: "script-src 'self' 'unsafe-eval' https://code.jquery.com/jquery-3.4.1.slim.min.js https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"}];
+  #          headers['x-content-type-options'] = [{key: 'X-Content-Type-Options', value: 'nosniff'}];
+  #          headers['x-frame-options'] = [{key: 'X-Frame-Options', value: 'SAMEORIGIN'}];
+  #          headers['referrer-policy'] = [{key: 'Referrer-Policy', value: 'same-origin'}];
+  #
+  #             callback(null, response);
+  #         };
+  #     Role: !GetAtt LambdaEdgeRole.Arn
+  #     Handler: index.handler
+  #     Runtime: nodejs12.x
+  #
+  # LambdaEdgeFunctionVersion:
+  #   Type: AWS::Lambda::Version
+  #   Properties:
+  #     FunctionName: !Ref LambdaEdgeFunction
+  #     ProvisionedConcurrencyConfig:
+  #       ProvisionedConcurrentExecutions: 10
+  #
+  # LambdaEdgeRole:
+  #     Type: AWS::IAM::Role
+  #     Properties:
+  #       AssumeRolePolicyDocument:
+  #         Version: '2012-10-17'
+  #         Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service:
+  #             - lambda.amazonaws.com
+  #             - edgelambda.amazonaws.com
+  #           Action:
+  #           - sts:AssumeRole
+  #       Path: "/"
+  #       ManagedPolicyArns:
+  #         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
