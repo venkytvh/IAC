@@ -1,0 +1,40 @@
+Create lambda function using below code 
+
+'use strict';
+exports.handler = (event, context, callback) => {
+    
+    //Get contents of response
+    const response = event.Records[0].cf.response;
+    const headers = response.headers;
+
+//Set new headers 
+ //headers['strict-transport-security'] = [{key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubdomains; preload'}]; 
+ //headers['content-security-policy'] = [{key: 'Content-Security-Policy', value: "default-src 'none'; img-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'"}]; 
+ headers['content-security-policy'] = [{key: 'Content-Security-Policy', value: "script-src 'self' 'unsafe-eval' https://code.jquery.com/jquery-3.4.1.slim.min.js https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"}]; 
+ headers['x-content-type-options'] = [{key: 'X-Content-Type-Options', value: 'nosniff'}]; 
+ headers['x-frame-options'] = [{key: 'X-Frame-Options', value: 'SAMEORIGIN'}]; 
+ //headers['x-xss-protection'] = [{key: 'X-XSS-Protection', value: '1; mode=block'}]; 
+ headers['referrer-policy'] = [{key: 'Referrer-Policy', value: 'same-origin'}]; 
+    
+    //Return modified response
+    callback(null, response);
+};
+
+***************************************************
+Note : create new role from basic lambda edge template 
+Navigate to version and publish it 
+
+Take the public arn and navigate to cloudfront 
+
+Open the cloudfront id > behaviour>
+
+Add the orgin response 
+arn:aws:lambda:us-east-1:145528097621:function:scf-kenya-headers:2
+
+After deployment check the security header is working or not 
+https://securityheaders.com/
+
+If not  invalidate the cache and try again 
+
+Thank you 
+
