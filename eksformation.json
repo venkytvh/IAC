@@ -1,0 +1,96 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Solv cloud formation template for EKS Creation",
+    "Parameters": {
+        "subnetid1": {
+            "Description": "EKS Subnet list to provide ",
+            "Type": "AWS::EC2::Subnet::Id"
+        },
+        "subnetid2": {
+            "Description": "EKS Subnet list to provide ",
+            "Type": "AWS::EC2::Subnet::Id"
+        },
+        "rolearn": {
+            "Description": "EKS Role ARN for the EKS cluster",
+            "Type": "String"
+        },
+        "eksclusterversion": {
+            "Description": "EKS cluster version",
+            "Type": "String",
+            "Default": "1.21",
+            "AllowedValues": [
+                "1.21",
+                "1.20",
+                "1.19"
+            ]
+        },
+        "eksclustername": {
+            "Description": "EKS cluster name",
+            "Type": "String"
+        },
+        "vpcid": {
+            "Description": "VPC ID for the EKS cluster",
+            "Type": "AWS::EC2::VPC::Id"
+        }
+    },
+    "Resources": {
+        "ekssgingresssg": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Limits security group ingress traffic for EKS",
+                "SecurityGroupIngress": [
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Open All port",
+                        "IpProtocol": "-1"
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "vpcid"
+                }
+            }
+        },
+        "EKSCluster": {
+            "Type": "AWS::EKS::Cluster",
+            "Properties": {
+                "Name": {
+                    "Ref": "eksclustername"
+                },
+                "Version": {
+                    "Ref": "eksclusterversion"
+                },
+                "RoleArn": {
+                    "Ref": "rolearn"
+                },
+                "ResourcesVpcConfig": {
+                    "SecurityGroupIds": [
+                        {
+                            "Ref": "ekssgingresssg"
+                        }
+                    ],
+                    "SubnetIds": [
+                        {
+                            "Ref": "subnetid1"
+                        },
+                        {
+                            "Ref": "subnetid2"
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Prod-eks"
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "EKS": {
+            "Value": {
+                "Ref": "EKSCluster"
+            }
+        }
+    }
+}
