@@ -1,0 +1,128 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "CFT for MYSQL",
+    "Parameters": {
+        "DBInstanceIdentifier": {
+            "Description": "document cluster name",
+            "Type": "String"
+        },
+		"DBClusterIdentifier": {
+            "Description": "document cluster name",
+            "Type": "String"
+        },
+        "EngineVersion": {
+            "Description": "DB Engine name",
+            "Type": "String",
+			"AllowedValues" : [ "4.0.0","3.6.0"]
+        },
+        "MasterUserPassword": {
+            "Description": "DB userpassword",
+            "Type": "String"
+        },
+        "MasterUsername": {
+            "Description": "DB username",
+            "Type": "String"
+        },
+        "DBInstanceClass": {
+		
+		   "Default": "db.r5.large",
+		   "Type": "String",
+		   "AllowedValues" : [ "db.r5.24xlarge","db.r5.16xlarge","db.r5.12xlarge","db.r5.8xlarge","db.r5.4xlarge","db.r5.2xlarge","db.r5.xlarge","db.r5.large","db.r6g.12xlarge","db.r6g.16xlarge","db.r6g.8xlarge","db.r6g.4xlarge","db.r6g.2xlarge","db.r6g.xlarge","db.r6g.large","db.t4g.medium"]
+		
+		},
+        "VPCID": {
+            "Description": "VPCID",
+            "Type": "AWS::EC2::VPC::Id"
+        },
+        "SubnetValue1": {
+            "Description": "SubnetId",
+            "Type": "AWS::EC2::Subnet::Id"
+        },
+        "SubnetValue2": {
+            "Description": "SubnetId",
+            "Type": "AWS::EC2::Subnet::Id"
+        }
+    },
+    "Resources": {
+        "DBCluster": {
+            "Type" : "AWS::DocDB::DBCluster",
+            "Properties": {
+				"DBClusterIdentifier" : {
+				      "Ref": "DBClusterIdentifier"
+				},
+                
+                "DBSubnetGroupName": {
+				
+                    "Ref": "DBSubnetGroup"
+                },
+				"VpcSecurityGroupIds": [
+                    {
+                        "Ref": "DBEC2SecurityGroup"
+                    }
+                ],
+				"EngineVersion" : {
+				   "Ref": "EngineVersion" 
+				  
+				},
+                "MasterUserPassword": {
+                    "Ref": "MasterUserPassword"
+                },
+                "MasterUsername": {
+                    "Ref": "MasterUsername"
+                },
+				"PreferredBackupWindow" : "07:34-08:04",
+                "PreferredMaintenanceWindow" : "sat:04:51-sat:05:21",
+				"StorageEncrypted" : true
+            }
+        },
+		"DBinstance": {
+		   "Type" : "AWS::DocDB::DBInstance",
+           "Properties" : {
+           "DBClusterIdentifier" : {
+                 "Ref": "DBCluster"
+            },
+           "DBInstanceClass" : {
+                 "Ref": "DBInstanceClass"
+            },
+           "DBInstanceIdentifier" : {
+				      "Ref": "DBInstanceIdentifier"
+				},
+           "PreferredMaintenanceWindow" : "sat:06:54-sat:07:24"
+         
+        }
+		},
+		"DBSubnetGroup": {
+            "Type": "AWS::RDS::DBSubnetGroup",
+            "Properties": {
+                "DBSubnetGroupDescription": "description",
+                "SubnetIds": [
+                        {
+                            "Ref": "SubnetValue1"
+                        },
+                        {
+                            "Ref": "SubnetValue2"
+                        }
+                ]
+			}
+		},
+		"DBEC2SecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Enable SSH access via port 22",
+                "VpcId": {
+                    "Ref": "VPCID"
+                },
+                "SecurityGroupIngress": [
+                     {
+                        "IpProtocol": "tcp",
+                        "FromPort": 27017,
+                        "ToPort": 27017,
+                        "CidrIp": "0.0.0.0/0"
+                    
+                        
+                    }
+                ]
+            }
+        }
+   }
+}

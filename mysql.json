@@ -1,0 +1,127 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "CFT for MYSQL",
+    "Parameters": {
+        "DBInstanceIdentifier": {
+            "Description": "mysql cluster name",
+            "Type": "String"
+        },
+        "EngineVersion": {
+            "Description": "DB Engine name",
+            "Type": "String",
+			"AllowedValues" : [ "5.7.25","5.7.26","5.7.28","5.7.30","5.7.31","5.7.33","5.7.34","5.7.36","8.0.11","8.0.13","8.0.15","8.0.16","8.0.17","8.0.18","8.0.19","8.0.20","8.0.21","8.0.23","8.0.25","8.0.26","8.0.27"]
+        },
+        "MasterUserPassword": {
+            "Description": "DB userpassword",
+            "Type": "String"
+        },
+        "MasterUsername": {
+            "Description": "DB username",
+            "Type": "String"
+        },
+        "DBInstanceClass": {
+		
+		   "Default": "db.t3.medium",
+		   "Type": "String",
+		   "AllowedValues" : [ "db.t3.micro","db.t3.small","db.t3.medium","db.t3.large","db.t3.2xlarge","db.t2.micro","db.t2.small","db.t2.medium","db.t2.large","db.t2.2xlarge"]
+		
+		},
+        "AllocatedStorage": {
+		    "Type": "String",
+			"Default" : "100"
+	    },
+		"Engine": {
+		   "Type": "String",
+		   "Default" : "MySQL"
+		
+		},
+        "VPCID": {
+            "Description": "VPCID",
+            "Type": "AWS::EC2::VPC::Id"
+        },
+        "SubnetValue1": {
+            "Description": "SubnetId",
+            "Type": "AWS::EC2::Subnet::Id"
+        },
+        "SubnetValue2": {
+            "Description": "SubnetId",
+            "Type": "AWS::EC2::Subnet::Id"
+        }
+    },
+    "Resources": {
+        "DBinstance": {
+            "Type" : "AWS::RDS::DBInstance",
+            "Properties": {
+                "AllocatedStorage":
+                    {
+                        "Ref": "AllocatedStorage"
+                    },
+                "DBInstanceClass": 
+                {
+                        "Ref": "DBInstanceClass"
+                },
+				"DBInstanceIdentifier" : {
+				      "Ref": "DBInstanceIdentifier"
+				},
+                
+                "DBSubnetGroupName": {
+				
+                    "Ref": "DBSubnetGroup"
+                },
+				"VPCSecurityGroups": [
+                    {
+                        "Ref": "DBEC2SecurityGroup"
+                    }
+                ],
+                "Engine": 
+                    {
+                       "Ref": "Engine"
+                    },
+				"EngineVersion" : {
+				   "Ref": "EngineVersion" 
+				  
+				},
+                "MasterUserPassword": {
+                    "Ref": "MasterUserPassword"
+                },
+                "MasterUsername": {
+                    "Ref": "MasterUsername"
+                }
+            },
+            "DeletionPolicy": "Snapshot"
+        },
+		"DBSubnetGroup": {
+            "Type": "AWS::RDS::DBSubnetGroup",
+            "Properties": {
+                "DBSubnetGroupDescription": "description",
+                "SubnetIds": [
+                        {
+                            "Ref": "SubnetValue1"
+                        },
+                        {
+                            "Ref": "SubnetValue2"
+                        }
+                ]
+			}
+		},
+		"DBEC2SecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Enable SSH access via port 22",
+                "VpcId": {
+                    "Ref": "VPCID"
+                },
+                "SecurityGroupIngress": [
+                     {
+                        "IpProtocol": "tcp",
+                        "FromPort": 3306,
+                        "ToPort": 3306,
+                        "CidrIp": "0.0.0.0/0"
+                    
+                        
+                    }
+                ]
+            }
+        }
+    }
+}
