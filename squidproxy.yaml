@@ -1,0 +1,121 @@
+#Create the sh script after installation of ec2 instance 
+##!/bin/bash -xe
+#  yum update -y 
+#  yum install squid -y 
+#  systemctl enable squid
+#  systemctl start squid
+#  systemctl status squid
+#  echo ".google.com" >> /etc/squid/allow-site.txt 
+#  echo '''acl site dstdomain "/etc/squid/allow-site.txt"
+#  http_access allow site''' >> /etc/squid/squid.conf   ## add this line in section Example rule allowing access from your local networks.
+#  systemctl restart squid
+AWSTemplateFormatVersion: '2010-09-09' 
+Description: This template is all about ec2 instance creation with parameter and install grafana and prometheus server public or private subnet 
+Parameters:
+  NameOfService:
+    Description: The name of the service this stack is to be used for.
+    Type: String
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access into the server
+    Type: AWS::EC2::KeyPair::KeyName
+  SecurityGroupName:
+    Description: SecurityGroupName
+    Type: String
+  InstanceTypeParameter:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+    - t2.nano
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - t2.large
+    - t2.xlarge
+    - t2.2xlarge
+    - m4.large
+    - m4.xlarge
+    - m4.2xlarge
+    - m4.4xlarge
+    - m4.10xlarge
+    - m4.16xlarge
+    - c4.large
+    - c4.xlarge
+    - c4.2xlarge
+    - c4.4xlarge
+    - c4.8xlarge
+    - r4.large
+    - r4.xlarge
+    - r4.2xlarge
+    - r4.4xlarge
+    - r4.8xlarge
+    - r4.16xlarge
+    Description: Enter t2.micro, m1.small, or m1.large. Default is t2.micro.
+  VPCParameter:
+    Description: select the valid VPC
+    Type: AWS::EC2::VPC::Id
+  SubnetParameter:
+    Description: Select the subent private or public
+    Type: AWS::EC2::Subnet::Id
+Mappings:
+  RegionMap:
+    ap-south-1:
+      AMI: ami-0002bdad91f793433
+    us-west-1:
+      AMI: ami-bf5540df
+    eu-west-2:
+      AMI: ami-0d37e07bd4ff37148 # put amazonlinux2 ami here  
+    ap-southeast-1:
+      AMI: ami-e2adf99e
+    ap-southeast-2:
+      AMI: ami-43874721
+Resources:
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType:
+        Ref: InstanceTypeParameter
+      ImageId:
+        Fn::FindInMap:
+        - RegionMap
+        - Ref: AWS::Region
+        - AMI
+      SecurityGroupIds:
+      - Ref: MySecurityGroup
+      SubnetId:
+        Ref: SubnetParameter
+      Tags:
+      - Key: Name
+        Value:
+          Ref: NameOfService
+      KeyName:
+        Ref: KeyName
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      VpcId:
+        Ref: VPCParameter
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22' 
+        CidrIp: 13.234.244.34/32          # VPN IP 
+      - IpProtocol: tcp
+        FromPort: '65'
+        ToPort: '65'
+        CidrIp: 0.0.0.0/0        # squid proxy port for changes /etc/squid/squid.conf default 3128    
+      Tags:
+      - Key: Name
+        Value:
+          Ref: SecurityGroupName
+Outputs:
+  ServerDns:
+    Value:
+      Fn::GetAtt:
+      - Ec2Instance
+      - PublicDnsName
+  SecurityGroupID:
+    Value:
+      Fn::GetAtt:
+      - MySecurityGroup
+      - GroupId
