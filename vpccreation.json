@@ -1,19 +1,11 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "Solv cloud formation template for Netwrok Creation",
+    "Description": "Solv cloud formation template for VPC,Subnet,Routable,NatGateway,internetgateway,Role for EKS cluster and EKS node group Creation",
     "Parameters": {
         "vpccidr": {
-            "Description": "This is VPC CIDR range",
+            "Description": "The range used in VPC creation",
             "Type": "String",
             "Default": "10.0.0.0/16"
-        },
-        "publicaz": {
-            "Description": "AZ of the public subnet",
-            "Type": "AWS::EC2::AvailabilityZone::Name"
-        },
-        "privateaz": {
-            "Description": "AZ of the private subnet",
-            "Type": "AWS::EC2::AvailabilityZone::Name"
         }
     },
     "Resources": {
@@ -27,7 +19,7 @@
                 "Tags": [
                     {
                         "Key": "Name",
-                        "Value": "Prod-vpc"
+                        "Value": "prod-kenya-vpc"
                     }
                 ]
             }
@@ -36,7 +28,12 @@
             "Type": "AWS::EC2::Subnet",
             "Properties": {
                 "AvailabilityZone": {
-                    "Ref": "publicaz"
+                    "Fn::Select": [
+                        "0",
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
                 },
                 "VpcId": {
                     "Ref": "vpc"
@@ -58,16 +55,21 @@
                 "Tags": [
                     {
                         "Key": "Name",
-                        "Value": "public"
+                        "Value": "prod-kenya-public-subnet"
                     }
                 ]
             }
         },
-        "privatesubnet": {
+        "publicsubnet1": {
             "Type": "AWS::EC2::Subnet",
             "Properties": {
                 "AvailabilityZone": {
-                    "Ref": "privateaz"
+                    "Fn::Select": [
+                        "1",
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
                 },
                 "VpcId": {
                     "Ref": "vpc"
@@ -89,18 +91,90 @@
                 "Tags": [
                     {
                         "Key": "Name",
-                        "Value": "private"
+                        "Value": "prod-kenya-public-subnet1"
                     }
                 ]
             }
         },
-        "igwName": {
+        "privatesubnet": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "0",
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        2,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Ref": "vpccidr"
+                                },
+                                6,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "prod-kenya-private-subnet"
+                    }
+                ]
+            }
+        },
+        "privatesubnet1": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "1",
+                        {
+                            "Fn::GetAZs": ""
+                        }
+                    ]
+                },
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        3,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Ref": "vpccidr"
+                                },
+                                6,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "prod-kenya-private-subnet1"
+                    }
+                ]
+            }
+        },
+        "EC2InternetGateway": {
             "Type": "AWS::EC2::InternetGateway",
             "Properties": {
                 "Tags": [
                     {
                         "Key": "Name",
-                        "Value": "prodigw"
+                        "Value": "prod-kenya-internetGateway"
                     }
                 ]
             }
@@ -112,11 +186,38 @@
                     "Ref": "vpc"
                 },
                 "InternetGatewayId": {
-                    "Ref": "igwName"
+                    "Ref": "EC2InternetGateway"
                 }
             }
         },
-        "routeTable": {
+        "NatGateway": {
+            "Type": "AWS::EC2::NatGateway",
+            "Properties": {
+                "AllocationId": {
+                    "Fn::GetAtt": [
+                        "EIP",
+                        "AllocationId"
+                    ]
+                },
+                "SubnetId": {
+                    "Ref": "publicsubnet1"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "production-NatGateway"
+                    }
+                ]
+            }
+        },
+        "EIP": {
+            "DependsOn": "vpc",
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "Domain": "vpc"
+            }
+        },
+        "publicrouteTable": {
             "Type": "AWS::EC2::RouteTable",
             "Properties": {
                 "VpcId": {
@@ -125,20 +226,47 @@
                 "Tags": [
                     {
                         "Key": "Name",
-                        "Value": "routeTable"
+                        "Value": "prod-kenya-public-routeTable"
                     }
                 ]
             }
         },
-        "routeName": {
+        "publicroutetablerule": {
             "Type": "AWS::EC2::Route",
             "Properties": {
                 "RouteTableId": {
-                    "Ref": "routeTable"
+                    "Ref": "publicrouteTable"
                 },
                 "DestinationCidrBlock": "0.0.0.0/0",
                 "GatewayId": {
-                    "Ref": "igwName"
+                    "Ref": "EC2InternetGateway"
+                }
+            }
+        },
+        "privaterouteTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "prod-kenya-private-routeTable"
+                    }
+                ]
+            }
+        },
+        "privatecroutetablerule": {
+            "DependsOn": "NatGateway",
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "privaterouteTable"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "NatGatewayId": {
+                    "Ref": "NatGateway"
                 }
             }
         },
@@ -149,8 +277,98 @@
                     "Ref": "publicsubnet"
                 },
                 "RouteTableId": {
-                    "Ref": "routeTable"
+                    "Ref": "publicrouteTable"
                 }
+            }
+        },
+        "routeTableAssocPublicSubnet1": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "publicsubnet1"
+                },
+                "RouteTableId": {
+                    "Ref": "publicrouteTable"
+                }
+            }
+        },
+        "routeTableAssocPrivateSubnet": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "privatesubnet"
+                },
+                "RouteTableId": {
+                    "Ref": "privaterouteTable"
+                }
+            }
+        },
+        "routeTableAssocPrivateSubnet1": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "privatesubnet1"
+                },
+                "RouteTableId": {
+                    "Ref": "privaterouteTable"
+                }
+            }
+        },
+        "EKSclusterRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "eks.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+                ]
+            }
+        },
+        "EKSnodegroupclusterRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "ec2.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+                    "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+                    "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "VPCID": {
+            "Value": {
+                "Ref": "vpc"
             }
         }
     }

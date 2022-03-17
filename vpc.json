@@ -1,0 +1,213 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Solv cloud formation template for Netwrok Creation",
+    "Parameters": {
+        "vpccidr": {
+            "Description": "This is VPC CIDR range",
+            "Type": "String",
+            "Default": "10.0.0.0/16"
+        },
+        "publicaz": {
+            "Description": "AZ of the public subnet",
+            "Type": "AWS::EC2::AvailabilityZone::Name"
+        },
+        "privateaz": {
+            "Description": "AZ of the private subnet",
+            "Type": "AWS::EC2::AvailabilityZone::Name"
+        }
+    },
+    "Resources": {
+        "vpc": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "vpccidr"
+                },
+                "EnableDnsHostnames": "true",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Prod-vpc"
+                    }
+                ]
+            }
+        },
+        "publicsubnet": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Ref": "publicaz"
+                },
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        0,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Ref": "vpccidr"
+                                },
+                                6,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "public"
+                    }
+                ]
+            }
+        },
+        "privatesubnet": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Ref": "privateaz"
+                },
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "CidrBlock": {
+                    "Fn::Select": [
+                        1,
+                        {
+                            "Fn::Cidr": [
+                                {
+                                    "Ref": "vpccidr"
+                                },
+                                6,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "private"
+                    }
+                ]
+            }
+        },
+        "nacl": {
+            "Description": "nacl configuration",
+            "Type": "AWS::EC2::NetworkAcl",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "nacl"
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "vpc"
+                }
+            }
+        },
+        "naclallinternal": {
+            "Description": "Inbound rule for kenya nacl",
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "vpccidr"
+                },
+                "NetworkAclId": {
+                    "Ref": "nacl"
+                },
+                "Protocol": -1,
+                "RuleAction": "allow",
+                "RuleNumber": 100
+            }
+        },
+        "naclallexternal": {
+            "Description": "Outbound rule for kenya nacl",
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "CidrBlock": "0.0.0.0/0",
+                "Egress": "true",
+                "NetworkAclId": {
+                    "Ref": "nacl"
+                },
+                "Protocol": -1,
+                "RuleAction": "allow",
+                "RuleNumber": 100
+            }
+        },
+        "naclentryhttp": {
+            "Description": "Inbound rule for kenya nacl",
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "CidrBlock": "0.0.0.0/0",
+                "NetworkAclId": {
+                    "Ref": "nacl"
+                },
+                "PortRange": {
+                    "From": 80,
+                    "To": 80
+                },
+                "Protocol": 6,
+                "RuleAction": "allow",
+                "RuleNumber": 105
+            }
+        },
+        "publicsubnaclassociation": {
+            "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "nacl"
+                },
+                "SubnetId": {
+                    "Ref": "publicsubnet"
+                }
+            }
+        },
+        "privatesubnaclassociation": {
+            "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "nacl"
+                },
+                "SubnetId": {
+                    "Ref": "privatesubnet"
+                }
+            }
+        },
+        "securitygroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Security Group for the ec2 instances",
+                "GroupName": "security",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "Description": "open http port",
+                        "FromPort": 80,
+                        "ToPort": 80,
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "Description": "open ssh port",
+                        "FromPort": 22,
+                        "ToPort": 22,
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "openhttpssh"
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "vpc"
+                }
+            }
+        }
+    }
+}

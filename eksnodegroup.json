@@ -1,0 +1,61 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Solv cloud formation template for EKS node group",
+    "Parameters": {
+        "subnetid1": {
+            "Description": "Subnet1 ID to provide ",
+            "Type": "AWS::EC2::Subnet::Id"
+        },
+        "subnetid2": {
+            "Description": "Subnet2 ID to provide ",
+            "Type": "AWS::EC2::Subnet::Id"
+        },
+        "clusterName": {
+            "Description": "EKS Cluster Name ",
+            "Type": "String"
+        },
+        "nodegroupname": {
+            "Description": "EKS Node Group Name ",
+            "Type": "String"
+        },
+        "noderole": {
+            "Description": "EKS Node Group role ",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "eksnodegroup": {
+            "Description": "EKS Node Group creation",
+            "Type": "AWS::EKS::Nodegroup",
+            "Properties": {
+                "ClusterName": {
+                    "Ref": "clusterName"
+                },
+                "NodegroupName": {
+                    "Ref": "nodegroupname"
+                },
+                "NodeRole": {
+                    "Ref": "noderole"
+                },
+                "ScalingConfig": {
+                    "MinSize": 2,
+                    "DesiredSize": 2,
+                    "MaxSize": 2
+                },
+                "Subnets": [
+                    {
+                        "Ref": "subnetid1"
+                    },
+                    {
+                        "Ref": "subnetid2"
+                    }
+                ],
+                "Tags": 
+                    {
+                        "Key": "Name",
+                        "Value": "prod-eks-node-group"
+                    }
+            }
+        }
+    }
+}
